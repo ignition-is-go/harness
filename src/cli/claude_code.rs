@@ -1,4 +1,5 @@
-use crate::{Capabilities, Harness, HarnessError, HarnessRequest, RunResult};
+use super::prompt::{CliError, PromptRequest, RunResult};
+use crate::{Capabilities, Harness};
 use async_trait::async_trait;
 use std::process::Stdio;
 use std::time::Instant;
@@ -8,7 +9,6 @@ use tokio::process::Command;
 /// non-interactive print mode).
 pub struct ClaudeCode {
     bin: String,
-    /// Optional `--max-budget-usd` cap. Bound enforced by the CLI itself.
     max_budget_usd: Option<f64>,
 }
 
@@ -38,7 +38,10 @@ impl ClaudeCode {
 }
 
 #[async_trait]
-impl Harness for ClaudeCode {
+impl Harness<PromptRequest> for ClaudeCode {
+    type Response = RunResult;
+    type Error = CliError;
+
     fn name(&self) -> &str {
         "claude-code"
     }
@@ -54,7 +57,7 @@ impl Harness for ClaudeCode {
         }
     }
 
-    async fn run(&self, req: HarnessRequest) -> Result<RunResult, HarnessError> {
+    async fn run(&self, req: PromptRequest) -> Result<RunResult, CliError> {
         let mut cmd = Command::new(&self.bin);
         cmd.arg("-p")
             .arg(&req.prompt)
@@ -83,17 +86,14 @@ impl Harness for ClaudeCode {
 
         let start = Instant::now();
         let child_fut = async {
-            let child = cmd.spawn().map_err(HarnessError::Spawn)?;
-            child
-                .wait_with_output()
-                .await
-                .map_err(HarnessError::Io)
+            let child = cmd.spawn().map_err(CliError::Spawn)?;
+            child.wait_with_output().await.map_err(CliError::Io)
         };
 
         let output = match req.timeout {
             Some(d) => match tokio::time::timeout(d, child_fut).await {
                 Ok(r) => r?,
-                Err(_) => return Err(HarnessError::Timeout(d)),
+                Err(_) => return Err(CliError::Timeout(d)),
             },
             None => child_fut.await?,
         };
@@ -106,7 +106,7 @@ impl Harness for ClaudeCode {
         let (messages, tokens_in, tokens_out, cost_usd) = parse_claude_json(&stdout);
 
         if exit_code != 0 {
-            return Err(HarnessError::NonZeroExit {
+            return Err(CliError::NonZeroExit {
                 code: exit_code,
                 stdout,
                 stderr,
@@ -132,9 +132,6 @@ fn parse_claude_json(s: &str) -> (u32, u64, u64, f64) {
         Err(_) => return (0, 0, 0, 0.0),
     };
 
-    // Claude Code -p --output-format json returns a single object with
-    // `num_turns`, a `usage` block (`input_tokens`, `output_tokens`), and
-    // `total_cost_usd`. Cache fields are also present but not normalized.
     let messages = v
         .get("num_turns")
         .and_then(|n| n.as_u64())

@@ -1,67 +1,76 @@
-//! harness — normalize the wire shape of agentic CLI tools.
+//! harness — Tower-style generic primitive for stochastic / expensive
+//! async calls (LLM consults, RAG lookups, anything where you hand a
+//! request to a remote thing and get an answer back).
 //!
-//! A small abstraction over CLIs like `goose run` and `claude -p` so a
-//! consumer can issue one prompt against many harnesses without coding
-//! to each one's argv shape, JSON output schema, and exit-code semantics.
+//! The trait is generic over the request type with the response and
+//! error as associated types — same shape as `tower::Service`:
 //!
-//! The crate intentionally does only this: subprocess + parse + normalize.
-//! It has no opinion about retries, cost caps, verify gates, persistence,
-//! or coordination. Consumers compose those concerns themselves (a
-//! `tower::Service` impl on top of `Harness` is straightforward and
-//! deliberately not bundled).
+//! ```ignore
+//! pub trait Harness<Request> {
+//!     type Response;
+//!     type Error;
+//!     async fn run(&self, req: Request) -> Result<Self::Response, Self::Error>;
+//! }
+//! ```
 //!
-//! # Example
+//! So one trait family covers:
+//! - subprocess-wrapped agentic CLIs (`Goose`, `ClaudeCode`) — `harness::cli`
+//! - workflow orchestration that composes other Harnesses — `harness::workflow`
+//! - whatever comes next (HTTP-direct API clients, local model runners,
+//!   RAG retrievers, ...) without changing the trait
+//!
+//! # Example: agentic CLI
 //! ```no_run
-//! use harness::{Goose, Harness, HarnessRequest};
+//! use harness::{Harness, cli::{Goose, PromptRequest}};
 //! # async fn run() -> Result<(), Box<dyn std::error::Error>> {
 //! let h = Goose::new();
-//! let req = HarnessRequest::new("Summarize the README in two sentences.")
+//! let req = PromptRequest::new("Summarize the README in two sentences.")
 //!     .workdir(".")
 //!     .max_turns(3);
 //! let res = h.run(req).await?;
 //! println!("messages={} wall={:?}", res.messages, res.wall);
 //! # Ok(()) }
 //! ```
-//!
-//! # Capabilities
-//!
-//! Different harnesses expose different knobs. Inspect what an adapter
-//! supports before issuing requests rather than empirically probing:
-//!
-//! ```
-//! use harness::{ClaudeCode, Goose, Harness};
-//! let g = Goose::new();
-//! let c = ClaudeCode::new();
-//! assert!(g.capabilities().supports_json_output);
-//! assert!(c.capabilities().reports_cost);
-//! ```
 
-mod adapter;
-mod request;
+pub mod cli;
+pub mod workflow;
+
+mod capabilities;
 #[cfg(feature = "tower")]
 mod service;
 
-pub use adapter::{ClaudeCode, Goose};
-pub use request::{Capabilities, HarnessError, HarnessRequest, RunResult};
+pub use capabilities::Capabilities;
 #[cfg(feature = "tower")]
 pub use service::HarnessService;
 
 use async_trait::async_trait;
 
-/// A normalized agentic-CLI runner. Each implementation wraps one CLI
-/// (`goose`, `claude`, ...) and presents the same `run` shape.
+/// A normalized async caller. Generic over the request type with
+/// associated `Response` / `Error` — the same shape as `tower::Service`,
+/// minus the `poll_ready` / `Future` plumbing that the bridge in
+/// `service` adds back when the `tower` feature is on.
+///
+/// Implementors should keep `run` cheap to call concurrently
+/// (clone-able internal state) so wrappers like
+/// [`tower::limit::ConcurrencyLimit`] work without surprises.
 #[async_trait]
-pub trait Harness: Send + Sync {
-    /// Stable identifier — `"goose"`, `"claude-code"`, etc. Used for
-    /// telemetry and consumer routing decisions; should never change
-    /// across versions of the same adapter.
+pub trait Harness<Request>: Send + Sync
+where
+    Request: Send + 'static,
+{
+    type Response: Send;
+    type Error: Send + std::error::Error;
+
+    /// Stable identifier — `"goose"`, `"claude-code"`, `"workflow"`, etc.
+    /// Used for telemetry and consumer routing decisions; should never
+    /// change across versions of the same impl.
     fn name(&self) -> &str;
 
-    /// What this adapter can honor / populate. Cheap (const-ish) — does
-    /// not spawn the subprocess. Consumers route on this before sending
-    /// a request that depends on, say, `supports_max_turns`.
+    /// What this impl can honor / populate. Cheap (const-ish) — does
+    /// not invoke the underlying call. Consumers route on this before
+    /// sending a request that depends on, say, `supports_max_turns`.
     fn capabilities(&self) -> Capabilities;
 
-    /// Execute one prompt-to-completion run against the underlying CLI.
-    async fn run(&self, req: HarnessRequest) -> Result<RunResult, HarnessError>;
+    /// Execute one request-to-response run.
+    async fn run(&self, req: Request) -> Result<Self::Response, Self::Error>;
 }

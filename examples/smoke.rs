@@ -12,7 +12,8 @@
 //!     SMOKE_GOOSE_MODEL  — passes through as `--model`
 //!     SMOKE_CLAUDE_MODEL — passes through as `--model`
 
-use harness::{ClaudeCode, Goose, Harness, HarnessRequest};
+use harness::cli::{ClaudeCode, CliError, Goose, PromptRequest, RunResult};
+use harness::Harness;
 use std::time::Duration;
 
 #[tokio::main(flavor = "current_thread")]
@@ -27,7 +28,7 @@ async fn main() -> anyhow::Result<()> {
     let prompt = std::env::var("SMOKE_PROMPT")
         .unwrap_or_else(|_| "Reply with just the word READY.".into());
 
-    let mut req = HarnessRequest::new(&prompt)
+    let mut req = PromptRequest::new(&prompt)
         .max_turns(1)
         .timeout(Duration::from_secs(60));
     if let Ok(cwd) = std::env::current_dir() {
@@ -57,7 +58,10 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn run_one<H: Harness>(h: &H, req: HarnessRequest) {
+async fn run_one<H>(h: &H, req: PromptRequest)
+where
+    H: Harness<PromptRequest, Response = RunResult, Error = CliError>,
+{
     let caps = h.capabilities();
     println!(
         "\n== {} == (max_turns={} json={} tokens={} cost={})",
@@ -73,7 +77,6 @@ async fn run_one<H: Harness>(h: &H, req: HarnessRequest) {
                 "ok  exit={} messages={} tokens={}→{} cost=${:.4} wall={:?}",
                 r.exit_code, r.messages, r.tokens_in, r.tokens_out, r.cost_usd, r.wall
             );
-            // First 500 chars of stdout for a quick sanity check.
             let preview: String = r.stdout.chars().take(500).collect();
             if !preview.is_empty() {
                 println!("---stdout---\n{}\n", preview);

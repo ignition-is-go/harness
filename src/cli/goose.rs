@@ -1,17 +1,14 @@
-use crate::{Capabilities, Harness, HarnessError, HarnessRequest, RunResult};
+use super::prompt::{CliError, PromptRequest, RunResult};
+use crate::{Capabilities, Harness};
 use async_trait::async_trait;
 use std::process::Stdio;
 use std::time::Instant;
-use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
 
 /// Wraps the `goose` CLI in `run` subcommand:
 /// `goose run -i FILE --output-format json --no-session [...]`.
 pub struct Goose {
-    /// Path to the `goose` binary. Defaults to `"goose"` (PATH lookup).
     bin: String,
-    /// Optional provider override (`--provider`). Useful when the same
-    /// model name maps to multiple providers in goose config.
     provider: Option<String>,
 }
 
@@ -41,7 +38,10 @@ impl Goose {
 }
 
 #[async_trait]
-impl Harness for Goose {
+impl Harness<PromptRequest> for Goose {
+    type Response = RunResult;
+    type Error = CliError;
+
     fn name(&self) -> &str {
         "goose"
     }
@@ -51,24 +51,15 @@ impl Harness for Goose {
             supports_max_turns: true,
             supports_model_override: true,
             supports_json_output: true,
-            // goose's JSON output carries token usage in some configs
-            // (extension-dependent), absent in others; conservative
-            // adapter view: yes, the field exists when goose emits it,
-            // but consumers should expect zeros under some providers.
             reports_tokens: true,
-            // goose does not expose a cost field — consumers should
-            // compute from token counts + their model's pricing.
             reports_cost: false,
             supports_workdir: true,
         }
     }
 
-    async fn run(&self, req: HarnessRequest) -> Result<RunResult, HarnessError> {
-        // goose -i FILE reads the instruction file; stdin "-" also works
-        // but writing to a tempfile gives nicer process-tree introspection
-        // when something hangs.
-        let mut tmp = tempfile::NamedTempFile::new().map_err(HarnessError::Io)?;
-        std::io::Write::write_all(&mut tmp, req.prompt.as_bytes()).map_err(HarnessError::Io)?;
+    async fn run(&self, req: PromptRequest) -> Result<RunResult, CliError> {
+        let mut tmp = tempfile::NamedTempFile::new().map_err(CliError::Io)?;
+        std::io::Write::write_all(&mut tmp, req.prompt.as_bytes()).map_err(CliError::Io)?;
         let prompt_path = tmp.path().to_owned();
 
         let mut cmd = Command::new(&self.bin);
@@ -102,17 +93,14 @@ impl Harness for Goose {
 
         let start = Instant::now();
         let child_fut = async {
-            let child = cmd.spawn().map_err(HarnessError::Spawn)?;
-            child
-                .wait_with_output()
-                .await
-                .map_err(HarnessError::Io)
+            let child = cmd.spawn().map_err(CliError::Spawn)?;
+            child.wait_with_output().await.map_err(CliError::Io)
         };
 
         let output = match req.timeout {
             Some(d) => match tokio::time::timeout(d, child_fut).await {
                 Ok(r) => r?,
-                Err(_) => return Err(HarnessError::Timeout(d)),
+                Err(_) => return Err(CliError::Timeout(d)),
             },
             None => child_fut.await?,
         };
@@ -122,14 +110,10 @@ impl Harness for Goose {
         let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
         let exit_code = output.status.code().unwrap_or(-1);
 
-        // goose --output-format json emits a single JSON object with at
-        // least a `messages` array and `total_token_usage` block. Both
-        // shape and field names are subject to change across goose
-        // versions, so parse best-effort and leave 0 on miss.
         let (messages, tokens_in, tokens_out) = parse_goose_json(&stdout);
 
         if exit_code != 0 {
-            return Err(HarnessError::NonZeroExit {
+            return Err(CliError::NonZeroExit {
                 code: exit_code,
                 stdout,
                 stderr,
@@ -150,9 +134,6 @@ impl Harness for Goose {
 }
 
 fn parse_goose_json(s: &str) -> (u32, u64, u64) {
-    // Some goose configs prepend non-JSON banner lines before the JSON
-    // object even with --quiet (depending on extensions). Locate the
-    // last `{...}` block and try that.
     let trimmed = s.trim();
     let start = trimmed.find('{').unwrap_or(0);
     let candidate = &trimmed[start..];
@@ -180,11 +161,4 @@ fn parse_goose_json(s: &str) -> (u32, u64, u64) {
         .unwrap_or(0);
 
     (messages, tokens_in, tokens_out)
-}
-
-// Silence unused warning for the AsyncWriteExt import on platforms where
-// only synchronous tempfile writes are exercised by tests.
-#[allow(dead_code)]
-fn _ensure_async_write_imported() {
-    fn _f<W: AsyncWriteExt + Unpin>(_w: W) {}
 }

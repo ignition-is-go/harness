@@ -1,7 +1,8 @@
 //! Adapter-compliance suite.
 //!
-//! Every `Harness` impl in this crate is exercised through the same
-//! assertions so a new adapter can't silently violate the contract.
+//! Every CLI-family `Harness` impl in this crate is exercised through
+//! the same assertions so a new adapter can't silently violate the
+//! contract.
 //!
 //! Two layers:
 //!
@@ -15,10 +16,17 @@
 //!     AND the binary is on PATH. Designed for local smoke and ad-hoc
 //!     CI lanes that pre-install the CLIs; never assumed in default CI.
 
-use harness::{Capabilities, ClaudeCode, Goose, Harness, HarnessRequest};
+use harness::cli::{ClaudeCode, Goose, PromptRequest, RunResult, CliError};
+use harness::{Capabilities, Harness};
 use std::time::Duration;
 
-fn all_adapters() -> Vec<Box<dyn Harness>> {
+/// All CLI-family adapters share `Harness<PromptRequest, Response = RunResult, Error = CliError>`,
+/// so the suite is generic over that one shape.
+type CliAdapter = Box<
+    dyn Harness<PromptRequest, Response = RunResult, Error = CliError>,
+>;
+
+fn all_adapters() -> Vec<CliAdapter> {
     vec![Box::new(Goose::new()), Box::new(ClaudeCode::new())]
 }
 
@@ -32,9 +40,9 @@ fn every_adapter_has_a_non_empty_name() {
 #[test]
 fn adapter_names_are_unique() {
     let adapters = all_adapters();
-    let mut seen: Vec<&str> = Vec::new();
+    let mut seen: Vec<String> = Vec::new();
     for a in &adapters {
-        let n = a.name();
+        let n = a.name().to_owned();
         assert!(
             !seen.contains(&n),
             "duplicate adapter name {n:?}; names must be unique for routing"
@@ -94,16 +102,17 @@ fn which(bin: &str) -> bool {
         .unwrap_or(false)
 }
 
-async fn smoke_one<H: Harness>(h: &H) {
-    let req = HarnessRequest::new("Reply with just the word READY.")
+async fn smoke_one<H>(h: &H)
+where
+    H: Harness<PromptRequest, Response = RunResult, Error = CliError>,
+{
+    let req = PromptRequest::new("Reply with just the word READY.")
         .max_turns(1)
         .timeout(Duration::from_secs(90));
     let res = h.run(req).await.unwrap_or_else(|e| {
         panic!("{}: run() failed: {e}", h.name());
     });
     assert_eq!(res.exit_code, 0, "{}: non-zero exit", h.name());
-    // Don't assert on stdout content — the model may say "READY", "Ready",
-    // or include a brief explanation. Stable assertion is the exit code.
 }
 
 #[tokio::test]

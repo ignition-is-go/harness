@@ -9,7 +9,8 @@
 //!
 //! Skips if `goose` is missing from PATH.
 
-use harness::{Goose, HarnessRequest, HarnessService};
+use harness::cli::{Goose, PromptRequest};
+use harness::HarnessService;
 use std::time::Duration;
 use tower::limit::ConcurrencyLimit;
 use tower::{Service, ServiceExt};
@@ -21,16 +22,12 @@ async fn main() -> anyhow::Result<()> {
         return Ok(());
     }
 
-    // Build the service stack. Each layer composes — add RetryLayer,
-    // TimeoutLayer, custom middleware, etc. the same way.
     let svc = ConcurrencyLimit::new(HarnessService::new(Goose::new()), 1);
 
-    // Drive three concurrent requests through the cap. With limit=1 they
-    // serialize; bump the limit and they overlap.
     let mut handles = Vec::new();
     for i in 0..3 {
         let mut svc = svc.clone();
-        let req = HarnessRequest::new(format!("Reply with the number {i}."))
+        let req = PromptRequest::new(format!("Reply with the number {i}."))
             .max_turns(1)
             .timeout(Duration::from_secs(60));
         handles.push(tokio::spawn(async move {
