@@ -1,4 +1,4 @@
-use crate::{Harness, HarnessError, HarnessRequest, RunResult};
+use crate::{Capabilities, Harness, HarnessError, HarnessRequest, RunResult};
 use async_trait::async_trait;
 use std::process::Stdio;
 use std::time::Instant;
@@ -44,6 +44,23 @@ impl Goose {
 impl Harness for Goose {
     fn name(&self) -> &str {
         "goose"
+    }
+
+    fn capabilities(&self) -> Capabilities {
+        Capabilities {
+            supports_max_turns: true,
+            supports_model_override: true,
+            supports_json_output: true,
+            // goose's JSON output carries token usage in some configs
+            // (extension-dependent), absent in others; conservative
+            // adapter view: yes, the field exists when goose emits it,
+            // but consumers should expect zeros under some providers.
+            reports_tokens: true,
+            // goose does not expose a cost field — consumers should
+            // compute from token counts + their model's pricing.
+            reports_cost: false,
+            supports_workdir: true,
+        }
     }
 
     async fn run(&self, req: HarnessRequest) -> Result<RunResult, HarnessError> {
@@ -126,6 +143,7 @@ impl Harness for Goose {
             messages,
             tokens_in,
             tokens_out,
+            cost_usd: 0.0,
             wall,
         })
     }

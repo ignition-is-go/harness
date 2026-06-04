@@ -58,12 +58,20 @@ async fn main() -> anyhow::Result<()> {
 }
 
 async fn run_one<H: Harness>(h: &H, req: HarnessRequest) {
-    println!("\n== {} ==", h.name());
+    let caps = h.capabilities();
+    println!(
+        "\n== {} == (max_turns={} json={} tokens={} cost={})",
+        h.name(),
+        caps.supports_max_turns,
+        caps.supports_json_output,
+        caps.reports_tokens,
+        caps.reports_cost,
+    );
     match h.run(req).await {
         Ok(r) => {
             println!(
-                "ok  exit={} messages={} tokens={}→{} wall={:?}",
-                r.exit_code, r.messages, r.tokens_in, r.tokens_out, r.wall
+                "ok  exit={} messages={} tokens={}→{} cost=${:.4} wall={:?}",
+                r.exit_code, r.messages, r.tokens_in, r.tokens_out, r.cost_usd, r.wall
             );
             // First 500 chars of stdout for a quick sanity check.
             let preview: String = r.stdout.chars().take(500).collect();

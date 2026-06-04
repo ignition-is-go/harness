@@ -1,4 +1,4 @@
-use crate::{Harness, HarnessError, HarnessRequest, RunResult};
+use crate::{Capabilities, Harness, HarnessError, HarnessRequest, RunResult};
 use async_trait::async_trait;
 use std::process::Stdio;
 use std::time::Instant;
@@ -41,6 +41,17 @@ impl ClaudeCode {
 impl Harness for ClaudeCode {
     fn name(&self) -> &str {
         "claude-code"
+    }
+
+    fn capabilities(&self) -> Capabilities {
+        Capabilities {
+            supports_max_turns: true,
+            supports_model_override: true,
+            supports_json_output: true,
+            reports_tokens: true,
+            reports_cost: true,
+            supports_workdir: true,
+        }
     }
 
     async fn run(&self, req: HarnessRequest) -> Result<RunResult, HarnessError> {
@@ -92,7 +103,7 @@ impl Harness for ClaudeCode {
         let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
         let exit_code = output.status.code().unwrap_or(-1);
 
-        let (messages, tokens_in, tokens_out) = parse_claude_json(&stdout);
+        let (messages, tokens_in, tokens_out, cost_usd) = parse_claude_json(&stdout);
 
         if exit_code != 0 {
             return Err(HarnessError::NonZeroExit {
@@ -109,20 +120,21 @@ impl Harness for ClaudeCode {
             messages,
             tokens_in,
             tokens_out,
+            cost_usd,
             wall,
         })
     }
 }
 
-fn parse_claude_json(s: &str) -> (u32, u64, u64) {
+fn parse_claude_json(s: &str) -> (u32, u64, u64, f64) {
     let v: serde_json::Value = match serde_json::from_str(s.trim()) {
         Ok(v) => v,
-        Err(_) => return (0, 0, 0),
+        Err(_) => return (0, 0, 0, 0.0),
     };
 
     // Claude Code -p --output-format json returns a single object with
-    // `num_turns` and a `usage` block (`input_tokens`, `output_tokens`).
-    // Cache-related fields are also present but not normalized here.
+    // `num_turns`, a `usage` block (`input_tokens`, `output_tokens`), and
+    // `total_cost_usd`. Cache fields are also present but not normalized.
     let messages = v
         .get("num_turns")
         .and_then(|n| n.as_u64())
@@ -135,6 +147,10 @@ fn parse_claude_json(s: &str) -> (u32, u64, u64) {
         .pointer("/usage/output_tokens")
         .and_then(|n| n.as_u64())
         .unwrap_or(0);
+    let cost_usd = v
+        .get("total_cost_usd")
+        .and_then(|n| n.as_f64())
+        .unwrap_or(0.0);
 
-    (messages, tokens_in, tokens_out)
+    (messages, tokens_in, tokens_out, cost_usd)
 }

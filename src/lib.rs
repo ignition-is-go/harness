@@ -22,12 +22,25 @@
 //! println!("messages={} wall={:?}", res.messages, res.wall);
 //! # Ok(()) }
 //! ```
+//!
+//! # Capabilities
+//!
+//! Different harnesses expose different knobs. Inspect what an adapter
+//! supports before issuing requests rather than empirically probing:
+//!
+//! ```
+//! use harness::{ClaudeCode, Goose, Harness};
+//! let g = Goose::new();
+//! let c = ClaudeCode::new();
+//! assert!(g.capabilities().supports_json_output);
+//! assert!(c.capabilities().reports_cost);
+//! ```
 
 mod adapter;
 mod request;
 
 pub use adapter::{ClaudeCode, Goose};
-pub use request::{HarnessError, HarnessRequest, RunResult};
+pub use request::{Capabilities, HarnessError, HarnessRequest, RunResult};
 
 use async_trait::async_trait;
 
@@ -39,6 +52,11 @@ pub trait Harness: Send + Sync {
     /// telemetry and consumer routing decisions; should never change
     /// across versions of the same adapter.
     fn name(&self) -> &str;
+
+    /// What this adapter can honor / populate. Cheap (const-ish) — does
+    /// not spawn the subprocess. Consumers route on this before sending
+    /// a request that depends on, say, `supports_max_turns`.
+    fn capabilities(&self) -> Capabilities;
 
     /// Execute one prompt-to-completion run against the underlying CLI.
     async fn run(&self, req: HarnessRequest) -> Result<RunResult, HarnessError>;

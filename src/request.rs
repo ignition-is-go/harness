@@ -55,7 +55,8 @@ impl HarnessRequest {
 }
 
 /// Normalized result of one run. Fields the underlying CLI doesn't expose
-/// are left at zero / empty rather than guessed.
+/// are left at zero / empty rather than guessed. See `Capabilities` on
+/// each adapter for which fields it actually populates.
 #[derive(Debug, Clone, Default)]
 pub struct RunResult {
     /// Raw stdout the CLI produced. Preserved verbatim for debugging /
@@ -73,8 +74,56 @@ pub struct RunResult {
     /// Best-effort token accounting. 0 if not reported.
     pub tokens_in: u64,
     pub tokens_out: u64,
+    /// Estimated cost in USD if the CLI reports it. 0 if not reported.
+    pub cost_usd: f64,
     /// Wall time the subprocess ran end-to-end.
     pub wall: Duration,
+}
+
+/// What an adapter can and can't do.
+///
+/// Returned by `Harness::capabilities()` without spawning the subprocess
+/// so consumers can route requests by capability (e.g. "I need a harness
+/// that reports cost"; "this harness can't honor max_turns, treat my cap
+/// as advisory") without empirical probing.
+///
+/// Fields are intentionally conservative — declare `false` unless the
+/// adapter has a concrete code path that uses the feature on every run.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Capabilities {
+    /// `HarnessRequest::max_turns` is passed through as a CLI flag.
+    pub supports_max_turns: bool,
+    /// `HarnessRequest::model` is passed through as a CLI flag.
+    pub supports_model_override: bool,
+    /// The CLI is invoked with a JSON output mode the adapter parses.
+    /// Implies the adapter has a real chance of populating structured
+    /// `RunResult` fields beyond `stdout`/`exit_code`.
+    pub supports_json_output: bool,
+    /// The CLI exposes input/output token counts the adapter parses into
+    /// `RunResult::tokens_in` and `tokens_out`.
+    pub reports_tokens: bool,
+    /// The CLI exposes a cost figure the adapter parses into
+    /// `RunResult::cost_usd`.
+    pub reports_cost: bool,
+    /// `HarnessRequest::workdir` is honored (subprocess `cwd` is set).
+    pub supports_workdir: bool,
+}
+
+impl Capabilities {
+    /// Internal invariant check used by the compliance test suite. Adapters
+    /// MUST NOT claim a structured-field capability (reports_tokens,
+    /// reports_cost) without also claiming `supports_json_output`, since
+    /// parsing those fields out of free-form stdout is not robust enough
+    /// to promise.
+    pub fn is_consistent(&self) -> bool {
+        if self.reports_tokens && !self.supports_json_output {
+            return false;
+        }
+        if self.reports_cost && !self.supports_json_output {
+            return false;
+        }
+        true
+    }
 }
 
 /// Failure modes a `Harness::run` can report. `NonZeroExit` carries the
