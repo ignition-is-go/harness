@@ -38,9 +38,13 @@
 
 mod adapter;
 mod request;
+#[cfg(feature = "tower")]
+mod service;
 
 pub use adapter::{ClaudeCode, Goose};
 pub use request::{Capabilities, HarnessError, HarnessRequest, RunResult};
+#[cfg(feature = "tower")]
+pub use service::HarnessService;
 
 use async_trait::async_trait;
 

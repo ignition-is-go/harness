@@ -11,9 +11,11 @@ Normalized subprocess wrappers around agentic CLI tools.
 | `ClaudeCode` | `claude -p PROMPT --output-format json` |
 
 No layers, no policy, no I/O channels beyond subprocess. Consumers compose
-retries / cost caps / persistence / coordination themselves; a
-`tower::Service` impl on top of `Harness` is trivial and deliberately not
-shipped here.
+retries / cost caps / persistence / coordination themselves; the
+optional `tower` feature provides a `tower::Service` impl so the entire
+[tower](https://docs.rs/tower) middleware ecosystem (timeout, retry,
+concurrency limit, rate limit, custom layers) drops in on top without
+us writing each one.
 
 ## Use
 
@@ -68,6 +70,33 @@ model's pricing if you need it.
 Adapters MUST keep `Capabilities::is_consistent()` true — e.g. claiming
 `reports_tokens` without `supports_json_output` is rejected by the
 compliance test suite (see below).
+
+## Tower integration (`--features tower`)
+
+`HarnessService<H>` wraps any `Harness` as a `tower::Service<HarnessRequest>`,
+so consumers stack middleware instead of hand-rolling policy:
+
+```rust
+use harness::{Goose, HarnessRequest, HarnessService};
+use tower::limit::ConcurrencyLimit;
+use tower::{Service, ServiceExt};
+
+let mut svc = ConcurrencyLimit::new(HarnessService::new(Goose::new()), 4);
+let req = HarnessRequest::new("...").max_turns(1);
+let res = svc.ready().await?.call(req).await?;
+```
+
+From that one impl the tower ecosystem becomes available without further
+adapter work — `tower::timeout::Timeout`, `tower::retry::Retry`,
+`tower::limit::RateLimit`, `tower::buffer::Buffer`, `tower::balance` for
+fanning across N harness instances, custom `Layer`s for cost caps /
+context-record emission / handshake injection.
+
+See `examples/with-tower.rs`:
+
+```sh
+cargo run --features tower --example with-tower
+```
 
 ## Smoke
 
