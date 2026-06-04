@@ -1,5 +1,5 @@
-use super::prompt::{CliError, PromptRequest, RunResult};
-use crate::{Capabilities, Harness};
+use crate::prompt::{CliError, PromptRequest, RunResult};
+use harness::{Capabilities, Harness};
 use async_trait::async_trait;
 use std::process::Stdio;
 use std::time::Instant;

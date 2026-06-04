@@ -9,8 +9,8 @@
 //!
 //! Skips if `goose` is missing from PATH.
 
-use harness::cli::{Goose, PromptRequest};
-use harness::HarnessService;
+use harness_cli::{Goose, PromptRequest};
+use harness_tower::HarnessService;
 use std::time::Duration;
 use tower::limit::ConcurrencyLimit;
 use tower::{Service, ServiceExt};

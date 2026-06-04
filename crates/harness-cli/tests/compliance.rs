@@ -16,7 +16,7 @@
 //!     AND the binary is on PATH. Designed for local smoke and ad-hoc
 //!     CI lanes that pre-install the CLIs; never assumed in default CI.
 
-use harness::cli::{ClaudeCode, Goose, PromptRequest, RunResult, CliError};
+use harness_cli::{ClaudeCode, CliError, Goose, PromptRequest, RunResult};
 use harness::{Capabilities, Harness};
 use std::time::Duration;
 

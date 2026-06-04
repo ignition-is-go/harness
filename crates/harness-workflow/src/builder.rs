@@ -4,8 +4,8 @@ use super::sink::Sink;
 use super::task::Task;
 use super::verifier::{VerifyOutcome, Verifier};
 use super::workflow_impl::Workflow;
-use crate::cli::{CliError, PromptRequest, RunResult};
-use crate::Harness;
+use harness_cli::{CliError, PromptRequest, RunResult};
+use harness::Harness;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
