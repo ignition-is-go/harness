@@ -27,16 +27,19 @@ depend on what you need, skip what you don't.
 | --- | --- | --- |
 | [`harness`](crates/harness) | The trait, `Capabilities`. Tiny, no I/O. | (nothing in-tree) |
 | [`harness-cli`](crates/harness-cli) | Goose + ClaudeCode adapters. `Harness<PromptRequest, Response = RunResult>`. | `harness` |
-| [`harness-workflow`](crates/harness-workflow) | State-machine `Workflow<T, E, V, L, S, H>` that composes other Harnesses with a verify-and-land tail. | `harness` + `harness-cli` |
+| [`harness-workflow`](crates/harness-workflow) | State-machine `Workflow<T, E, V, L, S, H>` + `Task`/`Environment`/`Verifier`/`Lander`/`Sink` traits + `ShellVerifier`. | `harness` + `harness-cli` |
 | [`harness-tower`](crates/harness-tower) | `tower::Service<R>` bridge for any `Harness<R>`. | `harness` |
+| [`harness-github`](crates/harness-github) | `GithubIssueTask` (wraps `gh issue view`, parses ui-watchdog axe context) + `GhPrLander` (commit / push / `gh pr create`). | `harness-workflow` |
+| [`harness-git`](crates/harness-git) | `GitCloneEnv` — clones to tempdir, branches off, manages `.git/info/exclude` for build artifacts. | `harness-workflow` |
+| [`harness-pcx`](crates/harness-pcx) | `PcxSink` — writes `Outcome` records to a pulse-ctx instance via JSON-RPC. | `harness-workflow` |
 
 Same pattern as Tower (`tower-service` / `tower-layer` / `tower` /
 `tower-http`): tiny focused crates that compose, no monolithic
 umbrella unless consumers want one.
 
-Future crates slot in the same way: `harness-github` (GithubIssueTask
-+ GhPrLander), `harness-git` (GitCloneEnv), `harness-pcx` (PcxSink),
-`harness-axe` (AxeVerifier), `harness-http` (direct API clients), etc.
+Future families slot in the same way: `harness-http` (direct API
+clients), `harness-axe` (Playwright + axe-core in-Rust, replacing the
+shell-script flavor), `harness-linear` (Linear ticket Task), etc.
 
 ## Use — agentic CLI
 
@@ -66,19 +69,30 @@ with a deterministic verify-then-land tail. Itself a
 `Harness<WorkflowRequest>` — composable, stackable, testable identically.
 
 ```rust
-use harness_workflow::WorkflowBuilder;
+use std::sync::Arc;
+use std::time::Duration;
+use harness::Harness;
 use harness_cli::Goose;
-// pulse-deploy provides concrete impls:
-// GithubIssueTask, GitCloneEnv, AxeVerifier, GhPrLander, PcxSink
+use harness_git::GitCloneEnv;
+use harness_github::{GhPrLander, GithubIssueTask};
+use harness_pcx::PcxSink;
+use harness_workflow::{ShellVerifier, WorkflowBuilder};
 
+let task = Arc::new(GithubIssueTask::fetch(url).await?);
 let workflow = WorkflowBuilder::new()
-    .task(GithubIssueTask::fetch(url).await?)
-    .environment(GitCloneEnv::new(repo, base))
-    .verifier(AxeVerifier::new())
-    .lander(GhPrLander::new(repo))
-    .sink(PcxSink::new(endpoint))
+    .task((*task).clone_via_arc())                          // see GithubIssueTask::fetch
+    .environment(
+        GitCloneEnv::new(repo_ssh, "main", branch_name)
+            .exclude("target/")
+            .exclude("dist/")
+            .commit_author("harness", "harness@example.com"),
+    )
+    .verifier(ShellVerifier::new("verify-axe-pulse-ctx")
+        .timeout(Duration::from_secs(900)))
+    .lander(GhPrLander::new(repo, "main", branch_name))
+    .sink(PcxSink::new(endpoint, task)?.actor_model("ollama/gpt-oss-20b"))
     .consult(Goose::new())
-    .prompt(|task, env, _prev| build_prompt(task, env));
+    .prompt(|task, _env, _prev| format!("{}\n\n{}", task.objective(), task.body()));
 
 let outcome = workflow.run(Default::default()).await?;
 ```
