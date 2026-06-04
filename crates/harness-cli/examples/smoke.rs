@@ -12,7 +12,7 @@
 //!     SMOKE_GOOSE_MODEL  — passes through as `--model`
 //!     SMOKE_CLAUDE_MODEL — passes through as `--model`
 
-use harness::cli::{ClaudeCode, CliError, Goose, PromptRequest, RunResult};
+use harness_cli::{ClaudeCode, CliError, Goose, PromptRequest, RunResult};
 use harness::Harness;
 use std::time::Duration;
 

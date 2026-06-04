@@ -1,0 +1,12 @@
+[package]
+name = "harness"
+description = "Tower-style generic trait for stochastic / expensive async calls — Harness<Request> with Response and Error as associated types."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+readme = "../../README.md"
+
+[dependencies]
+async-trait.workspace = true
+thiserror.workspace = true

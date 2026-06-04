@@ -12,7 +12,8 @@
 //! ```no_run
 //! # #[cfg(feature = "tower")]
 //! # async fn run() -> Result<(), Box<dyn std::error::Error>> {
-//! use harness::{HarnessService, cli::{Goose, PromptRequest}};
+//! use harness_cli::{Goose, PromptRequest};
+//! use harness_tower::HarnessService;
 //! use tower::{Service, ServiceExt};
 //! use tower::limit::ConcurrencyLimit;
 //!
@@ -26,7 +27,7 @@
 //! # Ok(()) }
 //! ```
 
-use crate::Harness;
+use harness::Harness;
 use std::future::Future;
 use std::marker::PhantomData;
 use std::pin::Pin;

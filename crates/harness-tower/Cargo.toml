@@ -1,0 +1,21 @@
+[package]
+name = "harness-tower"
+description = "Bridge from `Harness<R>` to `tower::Service<R>` — stack tower layers (retry, timeout, concurrency limit, custom) around any Harness."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+harness.workspace = true
+tower.workspace = true
+
+[dev-dependencies]
+anyhow.workspace = true
+harness-cli.workspace = true
+tokio = { workspace = true, features = ["full"] }
+tower = { workspace = true, features = ["limit"] }
+
+[[example]]
+name = "with-tower"
+path = "examples/with-tower.rs"
