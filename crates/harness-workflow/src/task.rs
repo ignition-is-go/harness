@@ -18,3 +18,23 @@ pub trait Task: Send + Sync {
     fn body(&self) -> &str;
     fn attributes(&self) -> Attributes;
 }
+
+/// Blanket impl so a single `Arc<T>` can be both `task(...)`ed into a
+/// `WorkflowBuilder` and held by a `Sink` (e.g. `PcxSink` reads
+/// attributes at record time, the Workflow reads them at consult time).
+/// Sharing the Arc avoids cloning bodies that may be many KB of issue
+/// text.
+impl<T: Task + ?Sized> Task for std::sync::Arc<T> {
+    fn id(&self) -> &str {
+        (**self).id()
+    }
+    fn objective(&self) -> &str {
+        (**self).objective()
+    }
+    fn body(&self) -> &str {
+        (**self).body()
+    }
+    fn attributes(&self) -> Attributes {
+        (**self).attributes()
+    }
+}
