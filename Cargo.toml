@@ -1,0 +1,40 @@
+[package]
+name = "harness"
+version = "0.1.0"
+edition = "2021"
+description = "Normalized subprocess wrappers around agentic CLI tools (goose, claude, ...)."
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/ignition-is-go/harness"
+readme = "README.md"
+
+[features]
+default = []
+# Provides `HarnessService<H>` — a `tower::Service<HarnessRequest>` impl
+# so consumers can stack tower layers (retry, timeout, concurrency limit,
+# rate limit, custom) around any Harness without us writing each
+# middleware ourselves. Off by default to keep the core dep-free.
+tower = ["dep:tower"]
+
+[dependencies]
+async-trait = "0.1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"
+tempfile = "3"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "process", "io-util", "time", "fs", "sync"] }
+tower = { version = "0.5", optional = true, default-features = false, features = ["util", "limit"] }
+tracing = "0.1"
+
+[dev-dependencies]
+anyhow = "1"
+tokio = { version = "1", features = ["full"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[[example]]
+name = "smoke"
+path = "examples/smoke.rs"
+
+[[example]]
+name = "with-tower"
+path = "examples/with-tower.rs"
+required-features = ["tower"]
