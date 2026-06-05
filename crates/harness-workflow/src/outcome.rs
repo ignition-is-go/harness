@@ -21,6 +21,22 @@ pub struct WorkflowRequest {
     pub env: Vec<(String, String)>,
 }
 
+/// Metrics + raw trace the workflow captured from the consult harness.
+/// Bundled so every Outcome variant that has post-consult information
+/// can carry it without duplicating fields. `stdout` is the raw harness
+/// output (typically goose's `--output-format json`) which consumers
+/// can parse for per-turn details to populate UI transcripts.
+#[derive(Debug, Clone, Default)]
+pub struct ConsultTrace {
+    pub wall: Duration,
+    pub messages: u32,
+    pub tokens_in: u64,
+    pub tokens_out: u64,
+    pub cost_usd: f64,
+    pub stdout: String,
+    pub stderr: String,
+}
+
 /// Terminal classification of one Workflow run. The Sink records this
 /// verbatim; consumers branch on it for routing (e.g. notify on
 /// LandFailed, ignore AlreadyResolved).
@@ -33,40 +49,24 @@ pub enum Outcome {
     },
     /// Consult ran but produced no diff in the environment.
     NoDiff {
-        consult_wall: Duration,
-        consult_messages: u32,
-        consult_tokens_in: u64,
-        consult_tokens_out: u64,
-        consult_cost_usd: f64,
+        consult: ConsultTrace,
         notes: Vec<String>,
     },
     /// Consult produced a diff but post-verify rejected it.
     VerifyFailed {
-        consult_wall: Duration,
-        consult_messages: u32,
-        consult_tokens_in: u64,
-        consult_tokens_out: u64,
-        consult_cost_usd: f64,
+        consult: ConsultTrace,
         verify_stderr_tail: Option<String>,
         notes: Vec<String>,
     },
     /// Consult + verify both succeeded; lander then errored.
     LandFailed {
-        consult_wall: Duration,
-        consult_messages: u32,
-        consult_tokens_in: u64,
-        consult_tokens_out: u64,
-        consult_cost_usd: f64,
+        consult: ConsultTrace,
         lander_error: String,
         notes: Vec<String>,
     },
     /// Happy path: consult succeeded, verify passed, lander completed.
     Landed {
-        consult_wall: Duration,
-        consult_messages: u32,
-        consult_tokens_in: u64,
-        consult_tokens_out: u64,
-        consult_cost_usd: f64,
+        consult: ConsultTrace,
         landed: LandedRef,
         notes: Vec<String>,
     },
@@ -96,5 +96,17 @@ impl Outcome {
     /// Whether this outcome represents a happy-path completion.
     pub fn is_success(&self) -> bool {
         matches!(self, Outcome::Landed { .. } | Outcome::AlreadyResolved { .. })
+    }
+
+    /// Borrow the consult trace if the outcome has one. `AlreadyResolved`
+    /// + `RunnerError` (before consult) have no trace.
+    pub fn consult(&self) -> Option<&ConsultTrace> {
+        match self {
+            Outcome::NoDiff { consult, .. }
+            | Outcome::VerifyFailed { consult, .. }
+            | Outcome::LandFailed { consult, .. }
+            | Outcome::Landed { consult, .. } => Some(consult),
+            _ => None,
+        }
     }
 }

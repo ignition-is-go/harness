@@ -1,6 +1,6 @@
 use super::environment::Environment;
 use super::lander::Lander;
-use super::outcome::{Outcome, WorkflowRequest};
+use super::outcome::{ConsultTrace, Outcome, WorkflowRequest};
 use super::sink::Sink;
 use super::task::Task;
 use super::verifier::{VerifyOutcome, Verifier};
@@ -147,11 +147,15 @@ where
             }
         };
 
-        let consult_wall = consult_result.wall;
-        let consult_messages = consult_result.messages;
-        let consult_tokens_in = consult_result.tokens_in;
-        let consult_tokens_out = consult_result.tokens_out;
-        let consult_cost_usd = consult_result.cost_usd;
+        let consult = ConsultTrace {
+            wall: consult_result.wall,
+            messages: consult_result.messages,
+            tokens_in: consult_result.tokens_in,
+            tokens_out: consult_result.tokens_out,
+            cost_usd: consult_result.cost_usd,
+            stdout: consult_result.stdout,
+            stderr: consult_result.stderr,
+        };
 
         // Stage 4: diff present?
         let has_diff = {
@@ -170,14 +174,7 @@ where
             }
         };
         if !has_diff {
-            let outcome = Outcome::NoDiff {
-                consult_wall,
-                consult_messages,
-                consult_tokens_in,
-                consult_tokens_out,
-                consult_cost_usd,
-                notes,
-            };
+            let outcome = Outcome::NoDiff { consult, notes };
             self.record(&outcome).await?;
             return Ok(outcome);
         }
@@ -200,11 +197,7 @@ where
         };
         if !post_verify.passed {
             let outcome = Outcome::VerifyFailed {
-                consult_wall,
-                consult_messages,
-                consult_tokens_in,
-                consult_tokens_out,
-                consult_cost_usd,
+                consult,
                 verify_stderr_tail: post_verify.stderr_tail,
                 notes,
             };
@@ -219,11 +212,7 @@ where
                 Ok(r) => r,
                 Err(e) => {
                     let outcome = Outcome::LandFailed {
-                        consult_wall,
-                        consult_messages,
-                        consult_tokens_in,
-                        consult_tokens_out,
-                        consult_cost_usd,
+                        consult,
                         lander_error: e.to_string(),
                         notes,
                     };
@@ -234,11 +223,7 @@ where
         };
 
         let outcome = Outcome::Landed {
-            consult_wall,
-            consult_messages,
-            consult_tokens_in,
-            consult_tokens_out,
-            consult_cost_usd,
+            consult,
             landed,
             notes,
         };
