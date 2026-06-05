@@ -137,42 +137,17 @@ impl<T: Task> PcxSink<T> {
                 lines.push("pre-verify passed on pristine state".into());
                 push_notes(&mut lines, notes);
             }
-            Outcome::NoDiff {
-                consult_wall,
-                consult_messages,
-                consult_tokens_in,
-                consult_tokens_out,
-                consult_cost_usd,
-                notes,
-            } => {
-                push_consult(
-                    &mut lines,
-                    *consult_wall,
-                    *consult_messages,
-                    *consult_tokens_in,
-                    *consult_tokens_out,
-                    *consult_cost_usd,
-                );
+            Outcome::NoDiff { consult, notes } => {
+                push_consult(&mut lines, consult);
                 lines.push("no diff produced".into());
                 push_notes(&mut lines, notes);
             }
             Outcome::VerifyFailed {
-                consult_wall,
-                consult_messages,
-                consult_tokens_in,
-                consult_tokens_out,
-                consult_cost_usd,
+                consult,
                 verify_stderr_tail,
                 notes,
             } => {
-                push_consult(
-                    &mut lines,
-                    *consult_wall,
-                    *consult_messages,
-                    *consult_tokens_in,
-                    *consult_tokens_out,
-                    *consult_cost_usd,
-                );
+                push_consult(&mut lines, consult);
                 lines.push("verify rejected the diff".into());
                 if let Some(tail) = verify_stderr_tail {
                     lines.push(format!("verify stderr tail:\n{tail}"));
@@ -180,42 +155,20 @@ impl<T: Task> PcxSink<T> {
                 push_notes(&mut lines, notes);
             }
             Outcome::LandFailed {
-                consult_wall,
-                consult_messages,
-                consult_tokens_in,
-                consult_tokens_out,
-                consult_cost_usd,
+                consult,
                 lander_error,
                 notes,
             } => {
-                push_consult(
-                    &mut lines,
-                    *consult_wall,
-                    *consult_messages,
-                    *consult_tokens_in,
-                    *consult_tokens_out,
-                    *consult_cost_usd,
-                );
+                push_consult(&mut lines, consult);
                 lines.push(format!("lander failed: {lander_error}"));
                 push_notes(&mut lines, notes);
             }
             Outcome::Landed {
-                consult_wall,
-                consult_messages,
-                consult_tokens_in,
-                consult_tokens_out,
-                consult_cost_usd,
+                consult,
                 landed,
                 notes,
             } => {
-                push_consult(
-                    &mut lines,
-                    *consult_wall,
-                    *consult_messages,
-                    *consult_tokens_in,
-                    *consult_tokens_out,
-                    *consult_cost_usd,
-                );
+                push_consult(&mut lines, consult);
                 if let Some(sha) = &landed.commit_sha {
                     lines.push(format!("commit: {sha}"));
                 }
@@ -295,76 +248,30 @@ impl<T: Task + 'static> Sink for PcxSink<T> {
 }
 
 fn consult_metrics(o: &Outcome) -> Option<serde_json::Map<String, Value>> {
-    let (wall, msgs, ti, to, cost) = match o {
-        Outcome::NoDiff {
-            consult_wall,
-            consult_messages,
-            consult_tokens_in,
-            consult_tokens_out,
-            consult_cost_usd,
-            ..
-        }
-        | Outcome::VerifyFailed {
-            consult_wall,
-            consult_messages,
-            consult_tokens_in,
-            consult_tokens_out,
-            consult_cost_usd,
-            ..
-        }
-        | Outcome::LandFailed {
-            consult_wall,
-            consult_messages,
-            consult_tokens_in,
-            consult_tokens_out,
-            consult_cost_usd,
-            ..
-        }
-        | Outcome::Landed {
-            consult_wall,
-            consult_messages,
-            consult_tokens_in,
-            consult_tokens_out,
-            consult_cost_usd,
-            ..
-        } => (
-            *consult_wall,
-            *consult_messages,
-            *consult_tokens_in,
-            *consult_tokens_out,
-            *consult_cost_usd,
-        ),
-        _ => return None,
-    };
-    let mut m = serde_json::Map::new();
+    let c = o.consult()?;
+    let mut m: serde_json::Map<String, Value> = serde_json::Map::new();
     m.insert(
         "consult.wall_seconds".into(),
-        Value::String(format!("{:.1}", wall.as_secs_f64())),
+        Value::String(format!("{:.1}", c.wall.as_secs_f64())),
     );
-    m.insert("consult.messages".into(), Value::String(msgs.to_string()));
-    m.insert("consult.tokens_in".into(), Value::String(ti.to_string()));
-    m.insert("consult.tokens_out".into(), Value::String(to.to_string()));
+    m.insert("consult.messages".into(), Value::String(c.messages.to_string()));
+    m.insert("consult.tokens_in".into(), Value::String(c.tokens_in.to_string()));
+    m.insert("consult.tokens_out".into(), Value::String(c.tokens_out.to_string()));
     m.insert(
         "consult.cost_usd".into(),
-        Value::String(format!("{cost:.4}")),
+        Value::String(format!("{:.4}", c.cost_usd)),
     );
     Some(m)
 }
 
-fn push_consult(
-    lines: &mut Vec<String>,
-    wall: Duration,
-    messages: u32,
-    tokens_in: u64,
-    tokens_out: u64,
-    cost: f64,
-) {
-    lines.push(format!("consult wall: {:.1}s", wall.as_secs_f64()));
-    lines.push(format!("consult messages: {messages}"));
+fn push_consult(lines: &mut Vec<String>, c: &harness_workflow::ConsultTrace) {
+    lines.push(format!("consult wall: {:.1}s", c.wall.as_secs_f64()));
+    lines.push(format!("consult messages: {}", c.messages));
     lines.push(format!(
-        "consult tokens: {tokens_in}→{tokens_out}"
+        "consult tokens: {}→{}",
+        c.tokens_in, c.tokens_out
     ));
-    lines.push(format!("consult cost: ${cost:.4}"));
+    lines.push(format!("consult cost: ${:.4}", c.cost_usd));
 }
 
 fn push_notes(lines: &mut Vec<String>, notes: &[String]) {

@@ -54,7 +54,7 @@ mod workflow_impl;
 pub use builder::WorkflowBuilder;
 pub use environment::{Environment, EnvironmentError};
 pub use lander::{LandedRef, Lander, LanderError};
-pub use outcome::{Attributes, Outcome, WorkflowRequest};
+pub use outcome::{Attributes, ConsultTrace, Outcome, WorkflowRequest};
 pub use shell_verifier::ShellVerifier;
 pub use sink::{RecordId, Sink, SinkError};
 pub use task::Task;
