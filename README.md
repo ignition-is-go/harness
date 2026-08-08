@@ -1,6 +1,14 @@
-# harness
+# harness (deprecated)
 
-Tower-style generic primitive for stochastic / expensive async calls
+> This repository is retired as a general-purpose agent harness. Pulse's
+> bounded issue workflow now lives in `pulse-deploy` under the
+> `pulse-workflow-*` crates. Durable interactive agent sessions belong in
+> `pulse-agents` and use Agent Client Protocol (ACP), not this trait.
+
+No new adapters or dependents should be added here. Existing consumers should
+migrate to the `pulse-workflow-*` crates or to `pulse-agents`' ACP runtime.
+
+Bounded primitive for stochastic / expensive async calls
 (LLM consults, RAG lookups, anything where you hand a request to a
 remote thing and get an answer back).
 
@@ -16,7 +24,7 @@ pub trait Harness<Request>: Send + Sync {
 ```
 
 Generic over the request type, with response and error as associated
-types — same shape as `tower::Service`.
+types. This is retained only for the legacy bounded workflow consumer.
 
 ## Workspace
 
