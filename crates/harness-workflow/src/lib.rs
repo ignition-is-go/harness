@@ -58,5 +58,5 @@ pub use outcome::{Attributes, ConsultTrace, Outcome, WorkflowRequest};
 pub use shell_verifier::ShellVerifier;
 pub use sink::{RecordId, Sink, SinkError};
 pub use task::Task;
-pub use verifier::{VerifyOutcome, Verifier, VerifierError};
+pub use verifier::{Verifier, VerifierError, VerifyOutcome};
 pub use workflow_impl::{Workflow, WorkflowError};

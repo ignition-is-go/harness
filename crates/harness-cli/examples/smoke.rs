@@ -12,8 +12,8 @@
 //!     SMOKE_GOOSE_MODEL  — passes through as `--model`
 //!     SMOKE_CLAUDE_MODEL — passes through as `--model`
 
-use harness_cli::{ClaudeCode, CliError, Goose, PromptRequest, RunResult};
 use harness::Harness;
+use harness_cli::{ClaudeCode, CliError, Goose, PromptRequest, RunResult};
 use std::time::Duration;
 
 #[tokio::main(flavor = "current_thread")]
@@ -25,8 +25,8 @@ async fn main() -> anyhow::Result<()> {
         )
         .init();
 
-    let prompt = std::env::var("SMOKE_PROMPT")
-        .unwrap_or_else(|_| "Reply with just the word READY.".into());
+    let prompt =
+        std::env::var("SMOKE_PROMPT").unwrap_or_else(|_| "Reply with just the word READY.".into());
 
     let mut req = PromptRequest::new(&prompt)
         .max_turns(1)

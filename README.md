@@ -31,7 +31,6 @@ depend on what you need, skip what you don't.
 | [`harness-tower`](crates/harness-tower) | `tower::Service<R>` bridge for any `Harness<R>`. | `harness` |
 | [`harness-github`](crates/harness-github) | `GithubIssueTask` (wraps `gh issue view`, parses ui-watchdog axe context) + `GhPrLander` (commit / push / `gh pr create`). | `harness-workflow` |
 | [`harness-git`](crates/harness-git) | `GitCloneEnv` — clones to tempdir, branches off, manages `.git/info/exclude` for build artifacts. | `harness-workflow` |
-| [`harness-pcx`](crates/harness-pcx) | `PcxSink` — writes `Outcome` records to a pulse-ctx instance via JSON-RPC. | `harness-workflow` |
 
 Same pattern as Tower (`tower-service` / `tower-layer` / `tower` /
 `tower-http`): tiny focused crates that compose, no monolithic
@@ -75,7 +74,6 @@ use harness::Harness;
 use harness_cli::Goose;
 use harness_git::GitCloneEnv;
 use harness_github::{GhPrLander, GithubIssueTask};
-use harness_pcx::PcxSink;
 use harness_workflow::{ShellVerifier, WorkflowBuilder};
 
 let task = Arc::new(GithubIssueTask::fetch(url).await?);
@@ -90,7 +88,7 @@ let workflow = WorkflowBuilder::new()
     .verifier(ShellVerifier::new("verify-axe-pulse-ctx")
         .timeout(Duration::from_secs(900)))
     .lander(GhPrLander::new(repo, "main", branch_name))
-    .sink(PcxSink::new(endpoint, task)?.actor_model("ollama/gpt-oss-20b"))
+    .sink(your_sink)
     .consult(Goose::new())
     .prompt(|task, _env, _prev| format!("{}\n\n{}", task.objective(), task.body()));
 

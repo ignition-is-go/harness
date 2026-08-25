@@ -16,15 +16,13 @@
 //!     AND the binary is on PATH. Designed for local smoke and ad-hoc
 //!     CI lanes that pre-install the CLIs; never assumed in default CI.
 
-use harness_cli::{ClaudeCode, CliError, Goose, PromptRequest, RunResult};
 use harness::{Capabilities, Harness};
+use harness_cli::{ClaudeCode, CliError, Goose, PromptRequest, RunResult};
 use std::time::Duration;
 
 /// All CLI-family adapters share `Harness<PromptRequest, Response = RunResult, Error = CliError>`,
 /// so the suite is generic over that one shape.
-type CliAdapter = Box<
-    dyn Harness<PromptRequest, Response = RunResult, Error = CliError>,
->;
+type CliAdapter = Box<dyn Harness<PromptRequest, Response = RunResult, Error = CliError>>;
 
 fn all_adapters() -> Vec<CliAdapter> {
     vec![Box::new(Goose::new()), Box::new(ClaudeCode::new())]

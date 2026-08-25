@@ -7,7 +7,6 @@ members = [
     "crates/harness-tower",
     "crates/harness-github",
     "crates/harness-git",
-    "crates/harness-pcx",
 ]
 
 [workspace.package]
@@ -26,7 +25,6 @@ harness-workflow = { path = "crates/harness-workflow", version = "0.1.0" }
 harness-tower = { path = "crates/harness-tower", version = "0.1.0" }
 harness-github = { path = "crates/harness-github", version = "0.1.0" }
 harness-git = { path = "crates/harness-git", version = "0.1.0" }
-harness-pcx = { path = "crates/harness-pcx", version = "0.1.0" }
 
 # Shared external deps. Keeping versions pinned here means a single
 # bump propagates through the whole tree.

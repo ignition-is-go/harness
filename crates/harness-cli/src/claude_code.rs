@@ -1,6 +1,6 @@
 use crate::prompt::{CliError, PromptRequest, RunResult};
-use harness::{Capabilities, Harness};
 use async_trait::async_trait;
+use harness::{Capabilities, Harness};
 use std::process::Stdio;
 use std::time::Instant;
 use tokio::process::Command;
@@ -132,10 +132,7 @@ fn parse_claude_json(s: &str) -> (u32, u64, u64, f64) {
         Err(_) => return (0, 0, 0, 0.0),
     };
 
-    let messages = v
-        .get("num_turns")
-        .and_then(|n| n.as_u64())
-        .unwrap_or(0) as u32;
+    let messages = v.get("num_turns").and_then(|n| n.as_u64()).unwrap_or(0) as u32;
     let tokens_in = v
         .pointer("/usage/input_tokens")
         .and_then(|n| n.as_u64())

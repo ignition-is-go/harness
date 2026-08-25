@@ -2,10 +2,10 @@ use super::environment::Environment;
 use super::lander::Lander;
 use super::sink::Sink;
 use super::task::Task;
-use super::verifier::{VerifyOutcome, Verifier};
+use super::verifier::{Verifier, VerifyOutcome};
 use super::workflow_impl::Workflow;
-use harness_cli::{CliError, PromptRequest, RunResult};
 use harness::Harness;
+use harness_cli::{CliError, PromptRequest, RunResult};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
