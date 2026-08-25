@@ -1,7 +1,5 @@
 use async_trait::async_trait;
-use harness_workflow::{
-    Environment, LandedRef, Lander, LanderError, Task, VerifyOutcome,
-};
+use harness_workflow::{Environment, LandedRef, Lander, LanderError, Task, VerifyOutcome};
 use serde_json::json;
 use std::process::Stdio;
 use tokio::process::Command;
@@ -38,8 +36,7 @@ impl Default for LanderConfig {
     fn default() -> Self {
         Self {
             title_template: "fix: {task_title}".into(),
-            body_template: "Resolves {task_url}.\n\nProduced by {credit}."
-                .into(),
+            body_template: "Resolves {task_url}.\n\nProduced by {credit}.".into(),
             credit: "an autonomous Workflow".into(),
             commit_author: None,
         }

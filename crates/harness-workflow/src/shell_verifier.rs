@@ -14,7 +14,7 @@
 
 use crate::environment::Environment;
 use crate::task::Task;
-use crate::verifier::{VerifyOutcome, Verifier, VerifierError};
+use crate::verifier::{Verifier, VerifierError, VerifyOutcome};
 use async_trait::async_trait;
 use std::process::Stdio;
 use std::time::Duration;
@@ -87,7 +87,14 @@ impl Verifier for ShellVerifier {
         let passed = output.status.success();
         let stderr_tail = if !passed {
             let s = String::from_utf8_lossy(&output.stderr);
-            let tail: String = s.chars().rev().take(800).collect::<String>().chars().rev().collect();
+            let tail: String = s
+                .chars()
+                .rev()
+                .take(800)
+                .collect::<String>()
+                .chars()
+                .rev()
+                .collect();
             Some(tail)
         } else {
             None

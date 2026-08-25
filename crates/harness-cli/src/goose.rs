@@ -1,6 +1,6 @@
 use crate::prompt::{CliError, PromptRequest, RunResult};
-use harness::{Capabilities, Harness};
 use async_trait::async_trait;
+use harness::{Capabilities, Harness};
 use std::process::Stdio;
 use std::time::Instant;
 use tokio::process::Command;

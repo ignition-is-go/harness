@@ -62,11 +62,7 @@ impl GitCloneEnv {
         self
     }
 
-    pub fn commit_author(
-        mut self,
-        name: impl Into<String>,
-        email: impl Into<String>,
-    ) -> Self {
+    pub fn commit_author(mut self, name: impl Into<String>, email: impl Into<String>) -> Self {
         self.commit_author = Some((name.into(), email.into()));
         self
     }
@@ -94,9 +90,9 @@ impl Environment for GitCloneEnv {
                 "--branch",
                 &self.base_branch,
                 &self.repo_url,
-                workdir.to_str().ok_or_else(|| {
-                    EnvironmentError::Prepare("workdir path not UTF-8".into())
-                })?,
+                workdir
+                    .to_str()
+                    .ok_or_else(|| EnvironmentError::Prepare("workdir path not UTF-8".into()))?,
             ],
         )
         .await?;
@@ -115,8 +111,7 @@ impl Environment for GitCloneEnv {
                 .create(true)
                 .open(&exclude_path)
                 .map_err(EnvironmentError::Io)?;
-            writeln!(f, "\n# harness-git local-only excludes")
-                .map_err(EnvironmentError::Io)?;
+            writeln!(f, "\n# harness-git local-only excludes").map_err(EnvironmentError::Io)?;
             for pat in &self.excludes {
                 writeln!(f, "{pat}").map_err(EnvironmentError::Io)?;
             }

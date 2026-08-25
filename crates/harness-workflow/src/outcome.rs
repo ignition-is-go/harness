@@ -44,9 +44,7 @@ pub struct ConsultTrace {
 pub enum Outcome {
     /// Pre-verify passed before the consult ran — the task was already
     /// resolved by some prior change. No diff, no PR, just a record.
-    AlreadyResolved {
-        notes: Vec<String>,
-    },
+    AlreadyResolved { notes: Vec<String> },
     /// Consult ran but produced no diff in the environment.
     NoDiff {
         consult: ConsultTrace,
@@ -95,7 +93,10 @@ impl Outcome {
 
     /// Whether this outcome represents a happy-path completion.
     pub fn is_success(&self) -> bool {
-        matches!(self, Outcome::Landed { .. } | Outcome::AlreadyResolved { .. })
+        matches!(
+            self,
+            Outcome::Landed { .. } | Outcome::AlreadyResolved { .. }
+        )
     }
 
     /// Borrow the consult trace if the outcome has one. `AlreadyResolved`

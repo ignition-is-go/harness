@@ -73,8 +73,8 @@ impl GithubIssueTask {
             title: String,
             body: String,
         }
-        let resp: GhResp = serde_json::from_slice(&out.stdout)
-            .map_err(|e| IssueError::Parse(e.to_string()))?;
+        let resp: GhResp =
+            serde_json::from_slice(&out.stdout).map_err(|e| IssueError::Parse(e.to_string()))?;
 
         let (axe_rule_id, axe_flow_step) = extract_axe_context(&resp.body);
 
@@ -135,9 +135,8 @@ impl Task for GithubIssueTask {
 
 fn parse_issue_url(url: &str) -> Result<(String, u64), IssueError> {
     static RE: OnceLock<Regex> = OnceLock::new();
-    let re = RE.get_or_init(|| {
-        Regex::new(r"^https://github\.com/([^/]+/[^/]+)/issues/(\d+)").unwrap()
-    });
+    let re =
+        RE.get_or_init(|| Regex::new(r"^https://github\.com/([^/]+/[^/]+)/issues/(\d+)").unwrap());
     let caps = re
         .captures(url)
         .ok_or_else(|| IssueError::UrlParse(url.to_owned()))?;
@@ -154,8 +153,7 @@ fn parse_issue_url(url: &str) -> Result<(String, u64), IssueError> {
 fn extract_axe_context(body: &str) -> (Option<String>, Option<String>) {
     static RULE_RE: OnceLock<Regex> = OnceLock::new();
     static STATE_RE: OnceLock<Regex> = OnceLock::new();
-    let rule_re = RULE_RE
-        .get_or_init(|| Regex::new(r"(?i)axe rule\s+`([a-z0-9-]+)`").unwrap());
+    let rule_re = RULE_RE.get_or_init(|| Regex::new(r"(?i)axe rule\s+`([a-z0-9-]+)`").unwrap());
     let state_re = STATE_RE
         .get_or_init(|| Regex::new(r#"(?i)during the ['"]([a-z0-9-]+)['"] state"#).unwrap());
 
@@ -174,10 +172,8 @@ mod tests {
 
     #[test]
     fn parses_well_formed_url() {
-        let (repo, num) = parse_issue_url(
-            "https://github.com/ignition-is-go/pulse-ctx/issues/135",
-        )
-        .unwrap();
+        let (repo, num) =
+            parse_issue_url("https://github.com/ignition-is-go/pulse-ctx/issues/135").unwrap();
         assert_eq!(repo, "ignition-is-go/pulse-ctx");
         assert_eq!(num, 135);
     }

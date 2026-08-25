@@ -3,18 +3,17 @@ use super::lander::Lander;
 use super::outcome::{ConsultTrace, Outcome, WorkflowRequest};
 use super::sink::Sink;
 use super::task::Task;
-use super::verifier::{VerifyOutcome, Verifier};
-use harness_cli::{CliError, PromptRequest, RunResult};
-use harness::{Capabilities, Harness};
+use super::verifier::{Verifier, VerifyOutcome};
 use async_trait::async_trait;
+use harness::{Capabilities, Harness};
+use harness_cli::{CliError, PromptRequest, RunResult};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
 /// Builds the consult prompt at run-time from the Task, the prepared
 /// Environment, and the pre-verify outcome. Aliased to keep the
 /// `Workflow` struct field readable.
-pub type PromptBuilder<T, E> =
-    Arc<dyn Fn(&T, &E, &VerifyOutcome) -> String + Send + Sync>;
+pub type PromptBuilder<T, E> = Arc<dyn Fn(&T, &E, &VerifyOutcome) -> String + Send + Sync>;
 
 /// The state-machine that wraps a stochastic consult in a
 /// deterministic verify-and-land tail.
