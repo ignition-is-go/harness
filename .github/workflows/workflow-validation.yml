@@ -1,0 +1,16 @@
+name: Workflow validation
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/**
+      - .github/actions/**
+      - action.yml
+      - action.yaml
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    uses: ignition-is-go/pulse-actions/.github/workflows/workflow-validation.yml@3664557b5113a099b8990e4b296f58c40343c64f
