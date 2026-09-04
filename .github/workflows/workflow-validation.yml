@@ -13,4 +13,6 @@ permissions:
 
 jobs:
   validate:
-    uses: ignition-is-go/pulse-actions/.github/workflows/workflow-validation.yml@3664557b5113a099b8990e4b296f58c40343c64f
+    uses: ignition-is-go/pulse-actions/.github/workflows/validate-workflows.yml@2c94ebf4fedd47f0c36d491e0dee5ad446a071b5 # v1 candidate
+    with:
+      runner-json: '"ci-public-linux-ephemeral"'
